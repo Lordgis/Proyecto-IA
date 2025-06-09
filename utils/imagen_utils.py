@@ -2,6 +2,9 @@ import face_recognition
 import numpy as np
 import tempfile
 
+import base64
+import cv2
+
 def procesar_imagen(imagen_file):
     with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp:
         imagen_file.save(temp.name)
@@ -20,3 +23,10 @@ def comparar_rostros(nuevo, lista_registrados):
     if distancias[indice_mas_cercano] < 0.45:
         return indice_mas_cercano
     return None
+
+
+def base64_a_imagen(base64_string):
+    img_data = base64.b64decode(base64_string)
+    np_arr = np.frombuffer(img_data, np.uint8)
+    imagen = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    return imagen

@@ -1,6 +1,7 @@
 from flask import request, jsonify
 from utils.imagen_utils import procesar_imagen, comparar_rostros
 from services.firebase_service import db
+from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 def verificar_rostro():
     imagen = request.files.get('imagen')
@@ -20,7 +21,7 @@ def verificar_rostro():
         data = doc.to_dict()
         if "encoding_vector" in data:
             encodings.append(data["encoding_vector"])
-            nombres.append(data["nombre_completo"])
+            nombres.append(data.get("nombre_completo", "Desconocido"))
             ids.append(doc.id)
 
     coincidencia = comparar_rostros(encoding_nuevo, encodings)
@@ -28,14 +29,14 @@ def verificar_rostro():
         db.collection("registros_asistencia").add({
             "id_usuario": ids[coincidencia],
             "nombre_usuario": nombres[coincidencia],
-            "fecha_hora": db.SERVER_TIMESTAMP,
+            "fecha_hora": SERVER_TIMESTAMP,
             "modo": "automático",
             "estado": "autorizado"
         })
         return jsonify({"mensaje": f"Asistencia registrada para {nombres[coincidencia]}"}), 200
     else:
         db.collection("alertas").add({
-            "fecha_hora": db.SERVER_TIMESTAMP,
+            "fecha_hora": SERVER_TIMESTAMP,
             "motivo": "Rostro no identificado",
             "estado": "pendiente"
         })
