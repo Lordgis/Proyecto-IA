@@ -2,6 +2,7 @@ from flask import request, jsonify
 from utils.imagen_utils import procesar_imagen, comparar_rostros
 from services.firebase_service import db
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
+from datetime import datetime
 
 def verificar_rostro():
     imagen = request.files.get('imagen')
@@ -10,7 +11,7 @@ def verificar_rostro():
 
     encoding_nuevo = procesar_imagen(imagen)
     if encoding_nuevo is None:
-        return jsonify({"error": "No se detectó rostro"}), 400
+        return jsonify({"resultado": "No se detectó rostro"}), 400
 
     usuarios = db.collection("usuarios").stream()
     encodings = []
@@ -25,19 +26,35 @@ def verificar_rostro():
             ids.append(doc.id)
 
     coincidencia = comparar_rostros(encoding_nuevo, encodings)
+
     if coincidencia is not None:
+        nombre = nombres[coincidencia]
+        uid = ids[coincidencia]
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Registrar asistencia
         db.collection("registros_asistencia").add({
-            "id_usuario": ids[coincidencia],
-            "nombre_usuario": nombres[coincidencia],
+            "id_usuario": uid,
+            "nombre_usuario": nombre,
             "fecha_hora": SERVER_TIMESTAMP,
             "modo": "automático",
             "estado": "autorizado"
         })
-        return jsonify({"mensaje": f"Asistencia registrada para {nombres[coincidencia]}"}), 200
-    else:
-        db.collection("alertas").add({
-            "fecha_hora": SERVER_TIMESTAMP,
-            "motivo": "Rostro no identificado",
-            "estado": "pendiente"
-        })
-        return jsonify({"mensaje": "Rostro no identificado"}), 200
+
+        return jsonify({
+            "resultado": "Asistencia registrada",
+            "nombre_usuario": nombre,
+            "uid": uid,
+            "fecha_hora": now_str
+        }), 200
+
+    # Registrar alerta si no hay coincidencia
+    db.collection("alertas").add({
+        "fecha_hora": SERVER_TIMESTAMP,
+        "motivo": "Rostro no identificado",
+        "estado": "pendiente"
+    })
+
+    return jsonify({
+        "resultado": "Rostro no reconocido"
+    }), 200

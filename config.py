@@ -14,6 +14,3 @@ FIREBASE_CONFIG = {
 
 # Parámetros de reconocimiento facial
 FACE_MATCH_THRESHOLD = 0.6
-
-# Umbral para comparación de embeddings faciales (ajusta según pruebas)
-FACE_MATCH_THRESHOLD = 0.6
