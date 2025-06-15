@@ -2,6 +2,8 @@ from flask import Blueprint, jsonify
 from firebase_admin import firestore
 from datetime import datetime
 from collections import defaultdict
+from flask import Blueprint, jsonify, request
+
 
 db = firestore.client()
 usuario_bp = Blueprint('usuario', __name__)
@@ -11,39 +13,6 @@ def timestamp_to_iso(ts):
         return ts.isoformat() if ts else None
     except Exception:
         return None
-
-# Ruta para listar usuarios
-@usuario_bp.route('/listar', methods=['GET'])
-def listar_usuarios():
-    try:
-        usuarios_ref = db.collection('usuarios')
-        docs = usuarios_ref.stream()
-
-        usuarios = []
-        correos_vistos = set()
-
-        for doc in docs:
-            data = doc.to_dict()
-            correo = data.get('correo')
-
-            if not correo or correo in correos_vistos:
-                continue
-
-            correos_vistos.add(correo)
-
-            usuarios.append({
-                'id': doc.id,
-                'nombre_completo': data.get('nombre_completo', 'Desconocido'),
-                'correo': correo,
-                'rol': data.get('rol', 'estudiante'),
-                'fecha_registro': timestamp_to_iso(data.get('fecha_registro')),
-                'estado': data.get('estado', 'activo'),
-            })
-
-        return jsonify(usuarios), 200
-
-    except Exception as e:
-        return jsonify({'error': 'No se pudieron cargar los usuarios', 'detalle': str(e)}), 500
 
 # Ruta para listar asistencias
 @usuario_bp.route('/asistencias', methods=['GET'])
@@ -135,3 +104,81 @@ def listar_alertas():
 
     except Exception as e:
         return jsonify({'error': 'No se pudieron cargar las alertas', 'detalle': str(e)}), 500
+
+# Ruta para listar usuarios
+@usuario_bp.route('/listar', methods=['GET'])
+def listar_usuarios():
+    try:
+        usuarios_ref = db.collection('usuarios')
+        docs = usuarios_ref.stream()
+
+        usuarios = []
+        correos_vistos = set()
+
+        for doc in docs:
+            data = doc.to_dict()
+            correo = data.get('correo')
+
+            if not correo or correo in correos_vistos:
+                continue
+
+            correos_vistos.add(correo)
+
+            usuarios.append({
+                'id': doc.id,
+                'nombre_completo': data.get('nombre_completo', 'Desconocido'),
+                'correo': correo,
+                'rol': data.get('rol', 'estudiante'),
+                'fecha_registro': timestamp_to_iso(data.get('fecha_registro')),
+                'estado': data.get('estado', 'activo'),
+            })
+
+        return jsonify(usuarios), 200
+
+    except Exception as e:
+        return jsonify({'error': 'No se pudieron cargar los usuarios', 'detalle': str(e)}), 500
+
+# Ruta para editar usuario
+@usuario_bp.route('/editar/<usuario_id>', methods=['PUT'])
+def editar_usuario(usuario_id):
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No se enviaron datos para actualizar'}), 400
+
+        usuario_ref = db.collection('usuarios').document(usuario_id)
+        usuario_doc = usuario_ref.get()
+
+        if not usuario_doc.exists:
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+
+        # Opcional: validar campos permitidos para actualizar
+        campos_permitidos = {'nombre_completo', 'correo', 'rol', 'estado'}
+        datos_actualizar = {k: v for k, v in data.items() if k in campos_permitidos}
+
+        if not datos_actualizar:
+            return jsonify({'error': 'No hay campos válidos para actualizar'}), 400
+
+        usuario_ref.update(datos_actualizar)
+        return jsonify({'mensaje': 'Usuario actualizado correctamente'}), 200
+
+    except Exception as e:
+        return jsonify({'error': 'Error al actualizar usuario', 'detalle': str(e)}), 500
+
+# Ruta para eliminar usuario
+@usuario_bp.route('/eliminar/<usuario_id>', methods=['DELETE'])
+def eliminar_usuario(usuario_id):
+    try:
+        usuario_ref = db.collection('usuarios').document(usuario_id)
+        usuario_doc = usuario_ref.get()
+
+        if not usuario_doc.exists:
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+
+        usuario_ref.delete()
+        return jsonify({'mensaje': 'Usuario eliminado correctamente'}), 200
+
+    except Exception as e:
+        return jsonify({'error': 'Error al eliminar usuario', 'detalle': str(e)}), 500
+
+# Rutas restantes (listar asistencias, alertas) las mantienes igual...

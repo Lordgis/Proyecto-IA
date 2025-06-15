@@ -4,7 +4,7 @@ import os
 
 from controllers.registro_controller import registrar_usuario
 from controllers.verificacion_controller import verificar_rostro
-from controllers.usuarios_controller import usuario_bp, listar_usuarios, listar_asistencias, listar_alertas
+from controllers.usuarios_controller import usuario_bp, listar_usuarios, listar_asistencias, editar_usuario, eliminar_usuario, listar_alertas
 from controllers.asistencia_controller import asistencia_bp, procesar
 
 app = Flask(__name__)
@@ -27,6 +27,8 @@ app.register_blueprint(asistencia_bp, url_prefix="/asistencia")
 app.add_url_rule('/usuarios', view_func=listar_usuarios, methods=['GET'])
 app.add_url_rule('/asistencias', view_func=listar_asistencias, methods=['GET'])
 app.add_url_rule('/alertas', view_func=listar_alertas, methods=['GET'])
+app.add_url_rule('/editar_usuario', view_func=editar_usuario, methods=['GET'])
+app.add_url_rule('/eliminar_usuario', view_func=eliminar_usuario, methods=['GET'])
 
 @app.route('/Img/<filename>')
 def obtener_imagen(filename):
