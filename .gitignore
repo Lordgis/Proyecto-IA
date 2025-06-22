@@ -1,1 +1,22 @@
-.zip
+# Ignorar archivos temporales de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Ignorar carpetas de dependencias
+node_modules/
+venv/
+.env/
+
+# Ignorar archivos de configuración personal
+*.log
+*.env
+*.pyc
+*.zip
+
+# Ignorar carpetas de compilación
+dist/
+build/
+
+# Ignorar IDEs
+.vscode/
+.idea/
