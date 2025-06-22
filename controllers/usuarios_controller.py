@@ -181,4 +181,65 @@ def eliminar_usuario(usuario_id):
     except Exception as e:
         return jsonify({'error': 'Error al eliminar usuario', 'detalle': str(e)}), 500
 
-# Rutas restantes (listar asistencias, alertas) las mantienes igual...
+
+@usuario_bp.route('/dashboard/estadisticas', methods=['GET'])
+def estadisticas_dashboard():
+    try:
+        usuarios_ref = db.collection('usuarios')
+        usuarios_docs = list(usuarios_ref.stream())
+        total_usuarios = len(usuarios_docs)
+
+        asistencias_ref = db.collection('registros_asistencia')
+        registros = list(asistencias_ref.stream())
+
+        hoy = datetime.now().date()
+        mes_actual = hoy.strftime('%Y-%m')
+
+        # Calcular cuántos días tiene el mes actual
+        if hoy.month == 12:
+            siguiente_mes = datetime(hoy.year + 1, 1, 1)
+        else:
+            siguiente_mes = datetime(hoy.year, hoy.month + 1, 1)
+        dias_en_mes = (siguiente_mes - datetime(hoy.year, hoy.month, 1)).days
+
+        dias_mes = {str(d).zfill(2): 0 for d in range(1, dias_en_mes + 1)}
+        asistencias_hoy = 0
+        asistencias_mes = 0
+
+        for doc in registros:
+            data = doc.to_dict()
+            fecha = data.get('fecha_hora')
+            estado = data.get('estado', '').lower()
+
+            if not fecha or estado != 'autorizado':
+                continue
+
+            fecha_local = fecha.astimezone()
+            fecha_str = fecha_local.strftime('%Y-%m-%d')
+            mes_str = fecha_local.strftime('%Y-%m')
+            dia_str = fecha_local.strftime('%d')
+
+            if mes_str == mes_actual:
+                asistencias_mes += 1
+                dias_mes[dia_str] += 1
+
+            if fecha_local.date() == hoy:
+                asistencias_hoy += 1
+
+        # Calcular porcentaje real: asistencias registradas / posibles asistencias
+        total_posibles_asistencias = total_usuarios * dias_en_mes
+        porcentaje = int((asistencias_mes / total_posibles_asistencias) * 100) if total_posibles_asistencias > 0 else 0
+
+        # Armar serie para el gráfico
+        serie = [{"dia": dia, "asistencias": dias_mes[dia]} for dia in sorted(dias_mes)]
+
+        return jsonify({
+            "totalUsuarios": total_usuarios,
+            "asistenciasHoy": asistencias_hoy,
+            "asistenciasMes": asistencias_mes,
+            "porcentajeAsistencia": porcentaje,
+            "serie": serie
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": "Error al calcular estadísticas", "detalle": str(e)}), 500

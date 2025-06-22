@@ -30,7 +30,26 @@ def verificar_rostro():
     if coincidencia is not None:
         nombre = nombres[coincidencia]
         uid = ids[coincidencia]
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now()
+        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        fecha_actual = now.strftime("%Y-%m-%d")
+
+        # Verificar si ya hay asistencia para hoy
+        registros = db.collection("registros_asistencia") \
+            .where("id_usuario", "==", uid) \
+            .where("estado", "==", "autorizado") \
+            .stream()
+
+        for reg in registros:
+            data = reg.to_dict()
+            fecha_registro = data.get("fecha_hora")
+            if fecha_registro and fecha_registro.strftime('%Y-%m-%d') == fecha_actual:
+                return jsonify({
+                    "resultado": "ya esta registrado en la asistencia hoy",
+                    "nombre_usuario": nombre,
+                    "uid": uid,
+                    "fecha_hora": fecha_registro.strftime("%Y-%m-%d %H:%M:%S")
+                }), 409
 
         # Registrar asistencia
         db.collection("registros_asistencia").add({

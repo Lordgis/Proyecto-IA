@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from services.facial_recognition import procesar_asistencia
 from firebase_admin import firestore
+from datetime import datetime
 
 db = firestore.client()
 asistencia_bp = Blueprint('asistencia', __name__)
@@ -17,19 +18,42 @@ def procesar():
 
     if resultado.get("resultado") == "Asistencia registrada":
         try:
-            # Registro en Firestore si se reconoce al usuario
+            uid = resultado.get("uid")
+            nombre_usuario = resultado.get("nombre_usuario", "Desconocido")
+
+            if not uid:
+                return jsonify({"error": "Falta UID del usuario"}), 400
+
+            # Fecha actual (Y-m-d)
+            fecha_actual = datetime.now().strftime('%Y-%m-%d')
+
+            # Consultar asistencias del mismo UID hoy
+            asistencias_ref = db.collection("registros_asistencia")
+            query = asistencias_ref \
+                .where("uid", "==", uid) \
+                .where("estado", "==", "Presente") \
+                .stream()
+
+            for registro in query:
+                data = registro.to_dict()
+                fecha_registro = data.get("fecha_hora")
+                if fecha_registro and fecha_registro.strftime('%Y-%m-%d') == fecha_actual:
+                    return jsonify({"error": "El usuario ya registró asistencia hoy"}), 409
+
+            # Registrar asistencia si no hay duplicado
             doc = {
-                "nombre_usuario": resultado.get("nombre_usuario", "Desconocido"),
-                "uid": resultado.get("uid"),
-                "fecha_hora": resultado.get("fecha_hora"),
+                "nombre_usuario": nombre_usuario,
+                "uid": uid,
+                "fecha_hora": firestore.SERVER_TIMESTAMP,
                 "estado": "Presente",
                 "modo": "facial"
             }
             db.collection("registros_asistencia").add(doc)
+            return jsonify(resultado), 200
+
         except Exception as e:
             return jsonify({"error": "Reconocido pero no se pudo guardar", "detalle": str(e)}), 500
 
-        return jsonify(resultado), 200
     else:
         return jsonify(resultado), 400
 
